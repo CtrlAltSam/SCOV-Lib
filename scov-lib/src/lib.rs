@@ -2,10 +2,14 @@ use std::fs::ReadDir;
 use std::fs;
 use std::path::Path;
 
+mod scov_tree;
+use scov_tree::javascript::js_tokenizer;
+use scov_tree::javascript::js_token_parser;
+
 pub fn run(paths: ReadDir, base: String){
     let mut list: Vec<String> = Vec::new();
     
-    get_files(paths, base, &mut list);
+    get_files(paths, &mut list);
 
     let mut js_files: Vec<String> = Vec::new();
     let mut rust_files: Vec<String> = Vec::new();
@@ -28,17 +32,27 @@ pub fn run(paths: ReadDir, base: String){
     println!("Rust Files: {:#?}", rust_files);
     println!("Java Files: {:#?}", java_files);
     println!("Python Files: {:#?}", python_files);
+
+    let code = fs::read_to_string(js_files.get(2).unwrap()).expect("error reading file");
+
+    let tokens = js_tokenizer::tokenize(&code);
+    let imports = js_token_parser::parse_imports(&tokens);
+
+    for imp in imports{
+        println!("{:#?}", imp);
+    }
+    
 }
 
-fn get_files(paths: ReadDir, base: String, list: &mut Vec<String>){
+fn get_files(paths: ReadDir, list: &mut Vec<String>){
     for path in paths{
             let path = path.unwrap().path();
             
             if path.is_dir(){
-                get_files(fs::read_dir(path).unwrap(), base.clone(), list);
+                get_files(fs::read_dir(path).unwrap(),list);
             }
             else{
-                list.push(path.strip_prefix(&base).unwrap().display().to_string());
+                list.push(path.display().to_string());
             }  
     }
 }
