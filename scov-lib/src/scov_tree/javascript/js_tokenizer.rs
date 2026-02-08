@@ -67,6 +67,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             ')' => Some(Token::RParen),
             ',' => Some(Token::Comma),
             ';' => Some(Token::Semi),
+            '*' => Some(Token::Star),
             _ => None,
         };
 
@@ -93,6 +94,7 @@ pub fn tokenize(input: &str) -> Vec<Token> {
             match ident.as_str() {
                 "import" => tokens.push(Token::Import),
                 "from" => tokens.push(Token::From),
+                "as" => tokens.push(Token::As),
                 _ => tokens.push(Token::Ident(ident)),
             }
             continue;

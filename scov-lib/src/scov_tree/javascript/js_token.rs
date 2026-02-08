@@ -2,6 +2,8 @@
 pub enum JsToken {
     Import,
     From,
+    As,
+    Star,
     Ident(String),
     String(String),
     LBrace,

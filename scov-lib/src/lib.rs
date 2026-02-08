@@ -5,6 +5,7 @@ use std::path::Path;
 mod scov_tree;
 use scov_tree::javascript::js_tokenizer;
 use scov_tree::javascript::js_token_parser;
+use scov_tree::javascript::js_scanner;
 
 pub fn run(paths: ReadDir, base: String){
     let mut list: Vec<String> = Vec::new();
@@ -33,13 +34,14 @@ pub fn run(paths: ReadDir, base: String){
     println!("Java Files: {:#?}", java_files);
     println!("Python Files: {:#?}", python_files);
 
-    let code = fs::read_to_string(js_files.get(2).unwrap()).expect("error reading file");
-
-    let tokens = js_tokenizer::tokenize(&code);
-    let imports = js_token_parser::parse_imports(&tokens);
-
-    for imp in imports{
-        println!("{:#?}", imp);
+    let js_list = js_scanner::get_nodes(&js_files);
+    for node in js_list{
+        println!("{}", node.file_name);
+        println!("{}", node.file_path);
+        for import in node.imports{
+            println!("  Import: {}", import.import.source);
+            println!("    Node: {}\n    {}", import.node.as_ref().map_or("None", |n| n.file_name.as_str()), import.node.as_ref().map_or("None", |n| n.file_path.as_str()));
+        }
     }
     
 }

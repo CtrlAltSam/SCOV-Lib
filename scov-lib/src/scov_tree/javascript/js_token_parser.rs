@@ -1,11 +1,18 @@
 use super::js_token::JsToken as Token;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Import {
     pub source: String,
     pub default: Option<String>,
-    pub named: Vec<String>,
+    pub named: Vec<NamedImport>,
+    pub namespace: Option<String>,
     pub is_dynamic: bool,
+}
+
+#[derive(Debug, Clone)]
+pub struct NamedImport {
+    pub imported: String,
+    pub local: String,
 }
 
 pub fn parse_imports(tokens: &[Token]) -> Vec<Import> {
@@ -43,8 +50,10 @@ pub fn parse_imports(tokens: &[Token]) -> Vec<Import> {
 
 fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)> {
     let mut i = start + 1;
+
     let mut default = None;
     let mut named = Vec::new();
+    let mut namespace = None;
 
     // import "mod";
     if let Some(Token::String(src)) = tokens.get(i) {
@@ -53,6 +62,7 @@ fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)
                 source: src.clone(),
                 default: None,
                 named,
+                namespace,
                 is_dynamic: false,
             },
             i + 1,
@@ -65,9 +75,26 @@ fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)
         i += 1;
     }
 
-    // import foo, { ... }
+    // optional comma
     if matches!(tokens.get(i), Some(Token::Comma)) {
         i += 1;
+    }
+
+    // import * as ns
+    if matches!(tokens.get(i), Some(Token::Star)) {
+        i += 1;
+
+        if !matches!(tokens.get(i), Some(Token::As)) {
+            return None;
+        }
+        i += 1;
+
+        if let Some(Token::Ident(name)) = tokens.get(i) {
+            namespace = Some(name.clone());
+            i += 1;
+        } else {
+            return None;
+        }
     }
 
     // import { ... }
@@ -76,15 +103,34 @@ fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)
 
         while let Some(tok) = tokens.get(i) {
             match tok {
-                Token::Ident(name) => {
-                    named.push(name.clone());
+                Token::Ident(imported) => {
+                    let mut local = imported.clone();
                     i += 1;
+
+                    // foo as bar
+                    if matches!(tokens.get(i), Some(Token::As)) {
+                        i += 1;
+                        if let Some(Token::Ident(alias)) = tokens.get(i) {
+                            local = alias.clone();
+                            i += 1;
+                        } else {
+                            return None;
+                        }
+                    }
+
+                    named.push(NamedImport {
+                        imported: imported.clone(),
+                        local,
+                    });
                 }
+
                 Token::Comma => i += 1,
+
                 Token::RBrace => {
                     i += 1;
                     break;
                 }
+
                 _ => return None,
             }
         }
@@ -96,13 +142,14 @@ fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)
     }
     i += 1;
 
-    // expect source string
+    // expect source
     if let Some(Token::String(src)) = tokens.get(i) {
         Some((
             Import {
                 source: src.clone(),
                 default,
                 named,
+                namespace,
                 is_dynamic: false,
             },
             i + 1,
@@ -111,6 +158,7 @@ fn parse_static_import(tokens: &[Token], start: usize) -> Option<(Import, usize)
         None
     }
 }
+
 
 
 fn parse_dynamic_import(tokens: &[Token], start: usize) -> Option<(Import, usize)> {
@@ -137,6 +185,7 @@ fn parse_dynamic_import(tokens: &[Token], start: usize) -> Option<(Import, usize
             default: None,
             named: Vec::new(),
             is_dynamic: true,
+            namespace: None,
         },
         i + 1,
     ))
